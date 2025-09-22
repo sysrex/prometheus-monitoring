@@ -1,11 +1,3 @@
-volumes:
-  prometheus_data: {}
-  grafana_data: {}
-
-networks:
-  monitoring:
-    driver: bridge
-
 services:
   prometheus:
     image: prom/prometheus:latest
@@ -42,6 +34,22 @@ services:
     networks:
       - monitoring
     restart: unless-stopped
+
+  jaeger:
+    image: jaegertracing/jaeger:${JAEGER_VERSION:-latest}
+    restart: always
+    environment:
+      - OTEL_ENABLED=true
+    volumes:
+      - "./jaeger-ui.json:/etc/jaeger/jaeger-ui.json"
+      - "./jaeger/config.yml:/etc/jaeger/config.yml"
+    command: [ "--config", "/etc/jaeger/config.yml" ]
+    ports:
+      - "0.0.0.0:16686:16686"
+      - "0.0.0.0:8888:8888"
+      - "0.0.0.0:8889:8889"
+      - "0.0.0.0:4317:4317" # OTLP gRPC
+      - "0.0.0.0:4318:4318" # OTLP HTTP
 
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:latest
@@ -95,3 +103,11 @@ services:
     ports:
       - "1080:1080"
       - "1025:1025"
+
+volumes:
+  prometheus_data: {}
+  grafana_data: {}
+
+networks:
+  monitoring:
+    driver: bridge
