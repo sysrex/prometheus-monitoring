@@ -18,54 +18,6 @@ services:
       - monitoring
     restart: unless-stopped
 
-  node-exporter:
-    image: prom/node-exporter:latest
-    container_name: node-exporter
-    volumes:
-      - /proc:/host/proc:ro
-      - /sys:/host/sys:ro
-      - /:/rootfs:ro
-    command:
-      - '--path.procfs=/host/proc'
-      - '--path.sysfs=/host/sys'
-      - '--collector.filesystem.ignored-mount-points=^/(sys|proc|dev|host|etc)($|/)'
-    ports:
-      - "9100:9100"
-    networks:
-      - monitoring
-    restart: unless-stopped
-
-  jaeger:
-    image: jaegertracing/jaeger:${JAEGER_VERSION:-latest}
-    restart: always
-    environment:
-      - OTEL_ENABLED=true
-    volumes:
-      - "./jaeger-ui.json:/etc/jaeger/jaeger-ui.json"
-      - "./jaeger/config.yml:/etc/jaeger/config.yml"
-    command: [ "--config", "/etc/jaeger/config.yml" ]
-    ports:
-      - "0.0.0.0:16686:16686"
-      - "0.0.0.0:8888:8888"
-      - "0.0.0.0:8889:8889"
-      - "0.0.0.0:4317:4317" # OTLP gRPC
-      - "0.0.0.0:4318:4318" # OTLP HTTP
-
-  cadvisor:
-    image: gcr.io/cadvisor/cadvisor:latest
-    container_name: cadvisor
-    volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:rw
-      - /sys:/sys:ro
-      - /var/lib/docker/:/var/lib/docker:ro
-      - /dev/disk/:/dev/disk:ro
-    ports:
-      - "8080:8080"
-    networks:
-      - monitoring
-    restart: unless-stopped
-
   grafana:
     image: grafana/grafana:latest
     container_name: grafana
@@ -83,7 +35,7 @@ services:
       - monitoring
     restart: unless-stopped
 
-  alertmanager:
+   alertmanager:
     image: prom/alertmanager:latest
     container_name: alertmanager
     volumes:
@@ -93,6 +45,85 @@ services:
       - '--storage.path=/alertmanager'
     ports:
       - "9093:9093"
+    networks:
+      - monitoring
+    restart: unless-stopped
+
+  jaeger:
+    image: jaegertracing/jaeger:latest
+    restart: always
+    environment:
+      - OTEL_ENABLED=true
+    volumes:
+      - "./jaeger-ui.json:/etc/jaeger/jaeger-ui.json"
+      - "./jaeger/config.yml:/etc/jaeger/config.yml"
+    command: [ "--config", "/etc/jaeger/config.yml" ]
+    ports:
+      - "0.0.0.0:16686:16686"
+      - "0.0.0.0:8888:8888"
+      - "0.0.0.0:8889:8889"
+      - "0.0.0.0:4317:4317" # OTLP gRPC
+      - "0.0.0.0:4318:4318" # OTLP HTTP
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: promtail
+    restart: unless-stopped
+    ports:
+      - 9085:9085
+    environment:
+      - HOSTNAME
+    volumes:
+      - ./promtail/promtail.yml:/etc/promtail/promtail.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro # discovery
+      - /var/log/containers:/var/log/containers:ro # structured file tailing
+    command:
+      - --config.file=/etc/promtail/promtail.yml
+    networks:
+      - monitoring
+
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    restart: unless-stopped
+    ports:
+      - 3100:3100
+    volumes:
+      - loki-data:/loki
+      - ./loki/loki.yml:/etc/loki/loki.yml:ro
+    command:
+      - --config.file=/etc/loki/loki.yml
+    networks:
+      - monitoring
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.ignored-mount-points=^/(sys|proc|dev|host|etc)($|/)'
+    ports:
+      - "9100:9100"
+    networks:
+      - monitoring
+    restart: unless-stopped
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    ports:
+      - "8080:8080"
     networks:
       - monitoring
     restart: unless-stopped
@@ -107,6 +138,7 @@ services:
 volumes:
   prometheus_data: {}
   grafana_data: {}
+  loki-data: {}
 
 networks:
   monitoring:
