@@ -35,7 +35,7 @@ services:
       - monitoring
     restart: unless-stopped
 
-   alertmanager:
+  alertmanager:
     image: prom/alertmanager:latest
     container_name: alertmanager
     volumes:
